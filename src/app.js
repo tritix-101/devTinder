@@ -1,14 +1,17 @@
 const express = require("express");
 const { connectDb } = require("./config/database");
 const { User } = require("./models/user");
-const {validateSignupData}=require("./utils/validation");
-const bcrypt=require("bcrypt");
-
+const { validateSignupData } = require("./utils/validation");
+const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { adminAuth, userAuth } = require("./middlewares/auth");
 
 const app = express();
 const port = 7777;
 
 app.use(express.json());
+app.use(cookieParser());
 app.post("/signup", async (req, res) => {
   try {
     //Dynamic signup api
@@ -32,27 +35,49 @@ app.post("/signup", async (req, res) => {
 });
 
 //login api
-app.post("/login",async(req,res)=>{
-  try{
-    const {email,password}=req.body;
-    const user= await User.findOne({email:email});
-    if(!user){
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email: email });
+    if (!user) {
       throw new Error("Invalid email");
     }
 
-    const isValidPassword= await bcrypt.compare(password,user.password);
-    if(isValidPassword){
+    const isValidPassword = user.validatePassword(password);
+    if (isValidPassword) {
+      // //creating a token manually
+      // const token="ghvjbkasxygyhbjkndscxbjksaxoiknasx";
+      // //sending token by wrapping inside a cookie using method
+      // res.cookie("token",token);
+
+      //creating a json web token
+      const token = await user.getJwt();
+      //sending token by wrapping inside a cookie using method
+      res.cookie("token", token);
       res.send("Login Successful");
-    }
-    else{
+    } else {
       throw new Error("Invalid Credentials");
     }
+  } catch (error) {
+    res.status(400).send("ERROR : " + error.message);
+  }
+});
 
+//getting a user profile
+app.get("/profile", userAuth, async (req, res) => {
+  // const cookies=req.cookies;
+  // console.log(cookies);
+  // const {token} = cookies;
+  // console.log(token);
+  // res.send("user profile");
+
+  try {
+    const user=req.user;
+    res.send(user);
+  } catch (error) {
+    res.status(400).send("user not found");
   }
-  catch(error){
-    res.status(400).send("ERROR : "+error.message);
-  }
-})
+});
 
 //getting a user by a specified emailId
 app.get("/user", async (req, res) => {
@@ -99,16 +124,16 @@ app.patch("/user/:userId", async (req, res) => {
   const data = req.body;
 
   try {
-    const ALLOWED_UPDATES = ["gender", "about", "age","skills"];
+    const ALLOWED_UPDATES = ["gender", "about", "age", "skills"];
     const isUpdateAllowed = Object.keys(data).every((k) =>
       ALLOWED_UPDATES.includes(k)
     );
 
     if (!isUpdateAllowed) {
-      throw new Error;
+      throw new Error();
     }
 
-    if(data?.skills.length>10){
+    if (data?.skills.length > 10) {
       throw new Error("Skills are exceeded");
     }
 
@@ -119,9 +144,19 @@ app.patch("/user/:userId", async (req, res) => {
     console.log(user);
     res.send("user updated successfully");
   } catch (error) {
-    res.status(400).send("update failed:"+error.message);
+    res.status(400).send("update failed:" + error.message);
   }
 });
+
+//sending connection request
+app.post("/sendConnectionRequest",userAuth,async (req,res)=>{
+  try{
+    res.send("Connection request is sent successfully");
+  }catch(error){
+    res.status.end("ERROR:"+error.message);
+  }
+})
+
 
 connectDb()
   .then(() => {
