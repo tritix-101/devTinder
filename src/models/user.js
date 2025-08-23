@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
 const jwt = require("jsonwebtoken");
-const bcrypt=require("bcrypt");
+const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema(
   {
@@ -24,9 +24,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       lowercase: true,
-      validate(value){
-        if(!validator.isEmail(value)){
-            throw new Error("Invalid email Address:"+value);
+      validate(value) {
+        if (!validator.isEmail(value)) {
+          throw new Error("Invalid email Address:" + value);
         }
       },
     },
@@ -43,6 +43,16 @@ const userSchema = new mongoose.Schema(
         }
       },
     },
+    photoUrl: {
+      type: String,
+      default:
+        "https://t4.ftcdn.net/jpg/11/66/06/77/360_F_1166067709_2SooAuPWXp20XkGev7oOT7nuK1VThCsN.jpg",
+      validate(value) {
+        if (!validator.isURL(value)) {
+          throw new Error("inavalid photo url " + value);
+        }
+      },
+    },
     skills: {
       type: [String],
     },
@@ -51,22 +61,24 @@ const userSchema = new mongoose.Schema(
       default: "This is a default message",
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
- userSchema.methods.getJwt = async function () {
-   const user = this;
-   const token = await jwt.sign({ _id: user._id }, "SomeSecretKey" ,{expiresIn:"7d"});
-   return token;
- };
+userSchema.methods.getJwt = async function () {
+  const user = this;
+  const token = await jwt.sign({ _id: user._id }, "SomeSecretKey", {
+    expiresIn: "7d",
+  });
+  return token;
+};
 
- userSchema.methods.validatePassword=async function(passwordByInput){
-  const user=this;
-  const passwordHash=user.password;
-  const isValidPassword= await bcrypt.compare(passwordByInput,passwordHash);
+userSchema.methods.validatePassword = async function (passwordByInput) {
+  const user = this;
+  const passwordHash = user.password;
+  const isValidPassword = await bcrypt.compare(passwordByInput, passwordHash);
 
   return isValidPassword;
- }
+};
 
-const User=mongoose.model("User",userSchema);
-module.exports={User};
+const User = mongoose.model("User", userSchema);
+module.exports = { User };
